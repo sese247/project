@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>장애인을 위한 시설 찾기</title>
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css"
+   integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+   crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js"
+   integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og=="
+   crossorigin=""></script>
+
+  <script src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+    <style>
+    #mapid{ height: 100% }
+    b {
+    	color : red;
+    }
+    </style>
+</head>
+<body>
+<p id="'itle"><h2>장애인을 위한 시설 찾기</h2></p>
+<br>
+<div id="mapid" style="width: 800px; height: 500px;"></div>
+<br>
+<button type="submit" id="bokji">복지시설 찾기</button>
+<button type="submit" id="boho" >보호시설 찾기</button>
+<hr>
+<p id="demo">위치정보를 추출하려면 실행 버튼을 클릭하세요:</p>
+<button onclick="getLocation()">실행</button>
+<br>
+<p>추출된 위치를 바탕으로 근처의 시설을 찾습니다 </p>
+<hr>
+<button type="reset" id="reset">다시찾기</button>
+<br>
+<div id="info" style="width: 800px; height: 200px;" ></div>
+
+<script>
+  	var mymap = 0;
+  	mymap = L.map('mapid').setView([37.5096357,127.0555218], 13);
+
+    var myIcon_black = L.icon({
+	    iconUrl: '../image=location_black.png',
+	    iconSize: [30, 50]
+	});
+
+	var myIcon_mint = L.icon({
+	    iconUrl: '../image=location_mint.png',
+	    iconSize: [30, 50]
+	});
+
+  	L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+			maxZoom: 18,
+			attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+			'<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+			'Imagery <a href="https://www.mapbox.com/">Mapbox</a>',
+			id: 'mapbox.streets'
+	}).addTo(mymap);
+
+    var popup = L.popup();
+    var ct = L.popup();
+
+    var circle = 0;
+    function onMapClick(e){
+        popup.setLatLng(e.latlng);
+        mymap.setView(e.latlng, 15);
+        var marking = L.marker(e.latlng, {opacity: 0.3}).addTo(mymap);
+        var center_lat = e.latlng.lat;
+        var center_lng = e.latlng.lng;
+
+        $.getJSON("{% url 'mappoint' %}?center_lat="+center_lat+"&center_lng="+center_lng, function(jsonObj){
+            var center = e.latlng;
+            console.log(e.latlng);
+            var length = jsonObj.pin_lat.length;
+            var pin_lat = 0;
+            var pin_lng = 0;
+            var distanceInKm = 0;
+            var radius = 500
+
+            for(var i=0; i < length; i++){
+                pin_lat = parseFloat(jsonObj.pin_lat[i]);
+                pin_lng = parseFloat(jsonObj.pin_lng[i])
+                pin_name = jsonObj.pin_name[i];
+                pin_addr = jsonObj.pin_addr[i];
+                pin_tel = jsonObj.pin_tel[i];
+                pin_kind_detail = jsonObj.pin_kind_detail[i];
+                distanceInKm = center.distanceTo([pin_lat,pin_lng]);
+
+                if(distanceInKm < radius){
+                    var marker =L.marker([pin_lat,pin_lng]).addTo(mymap);
+                    marker.bindPopup(pin_name+"<br>"+pin_addr+"<br>"+pin_tel+"<br>"+pin_kind_detail).openPopup();
+                    }
+            }
+        });
+        if(circle == 0){
+        circle = L.circle(e.latlng, 500,
+            {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.3
+        }).addTo(mymap);
+        }
+        else{
+            mymap.removeLayer(circle);
+            circle = L.circle(e.latlng, 500,
+            {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.3
+        }).addTo(mymap);
+        }
+    }
+    mymap.on('click', onMapClick);
+
+    $('#bokji').click(function(k){
+        $.getJSON("{% url 'bokji' %}?bokji="+k, function(jsonObj){
+            var length = jsonObj.bokji_name.length;
+            var bokji_lat = 0;
+            var bokji_lng = 0;
+            for(var i=0; i < length; i++){
+                bokji_lat = parseFloat(jsonObj.bokji_lat[i]);
+                bokji_lng = parseFloat(jsonObj.bokji_lng[i])
+                bokji_name = jsonObj.bokji_name[i];
+                bokji_addr = jsonObj.bokji_addr[i];
+                bokji_tel = jsonObj.bokji_tel[i];
+                L.marker([bokji_lat, bokji_lng]).addTo(mymap)
+                        .bindPopup(bokji_name+"<br>"+bokji_addr+"<br>"+bokji_tel).openPopup()
+            };
+        });
+    });
+
+    $('#boho').click(function(p){
+        $.getJSON("{% url 'boho' %}?boho="+p, function(jsonObj){
+            var length = jsonObj.boho_name.length;
+            var boho_lat = 0;
+            var boho_lng = 0;
+            for(var i=0; i < length; i++){
+                boho_lat = parseFloat(jsonObj.boho_lat[i]);
+                boho_lng = parseFloat(jsonObj.boho_lng[i])
+                boho_name = jsonObj.boho_name[i];
+                boho_addr = jsonObj.boho_addr[i];
+                boho_tel = jsonObj.boho_tel[i];
+                L.marker([boho_lat, boho_lng]).addTo(mymap)
+                        .bindPopup(boho_name+"<br>"+boho_addr+"<br>"+boho_tel).openPopup()
+            }
+        });
+    });
+
+
+
+    var x=document.getElementById("demo");
+	  function getLocation() {
+         if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(showPosition,showError);
+         }
+         else {
+        	 x.innerHTML=" 이 브라우저는 geolocation을 지원하지 않습니다.";
+       	 }
+      }
+      function showPosition(position) {
+          x.innerHTML="위도: " + position.coords.latitude + "<br />경도: " + position.coords.longitude;
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          mymap.setView([lat, lng], 15)
+          L.marker([lat,lng], {opacity: 0.3}).addTo(mymap);
+          var center = [lat, lng]
+          $.getJSON("{% url 'mappoint' %}?center_lat="+lat+"&center_lng="+lng, function(jsonObj){
+            var length = jsonObj.pin_lat.length;
+            var pin_lat = 0;
+            var pin_lng = 0;
+            var distanceInKm = 0;
+            var radius = 500
+
+            for(var i=0; i < length; i++){
+                pin_lat = parseFloat(jsonObj.pin_lat[i]);
+                pin_lng = parseFloat(jsonObj.pin_lng[i])
+                pin_name = jsonObj.pin_name[i];
+                pin_addr = jsonObj.pin_addr[i];
+                pin_tel = jsonObj.pin_tel[i];
+                pin_kind_detail = jsonObj.pin_kind_detail[i];
+                distanceInKm = mymap.distance([pin_lat,pin_lng], [lat,lng]);
+
+                if(distanceInKm < radius){
+                    L.marker([pin_lat,pin_lng]).addTo(mymap)
+                        .bindPopup(pin_name+"<br>"+pin_addr+"<br>"+pin_tel+"<br>"+pin_kind_detail).openPopup();
+                    }
+            }
+        });
+      }
+      function showError(error) {
+         switch(error.code) {
+            case error.PERMISSION_DENIED:
+               	x.innerHTML="사용자가 위치 기능 사용을 거부했습니다."
+            	break;
+
+            case error.POSITION_UNAVAILABLE:
+            	x.innerHTML="위치를 구할 수 없습니다.";
+           	 	break;
+
+            case error.TIMEOUT:
+           	 	x.innerHTML="사용자가 위치 기능 사용을 거부했습니다.";
+            	break;
+            case error.UNKNOWN_ERROR:
+            	x.innerHTML="기타 에러";
+         };
+      }
+
+
+    $('#reset').click(function(){
+        location.reload();
+    });
+
+  	</script>
+
+</body>
+</html>
